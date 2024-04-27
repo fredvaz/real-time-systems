@@ -31,21 +31,21 @@ long double time2ms( struct timespec t )
 }
 
 // Get the time difference between the start and end.
-timespec_t timeDiff( timespec_t start, timespec_t end )
+timespec_t time_diff( timespec_t start, timespec_t end )
 {
-    timespec_t result;
+    timespec_t delta_time;
 
     if ( (end.tv_nsec - start.tv_nsec) < 0 )                // 
     {
-        result.tv_sec = end.tv_sec - start.tv_sec - 1;
-        result.tv_nsec = 1E9 + end.tv_nsec - start.tv_nsec;
+        delta_time.tv_sec = end.tv_sec - start.tv_sec - 1;
+        delta_time.tv_nsec = 1E9 + end.tv_nsec - start.tv_nsec;
     }
     else                                                    // Default case
     {
-        result.tv_sec = end.tv_sec - start.tv_sec;
-        result.tv_nsec = end.tv_nsec - start.tv_nsec;
+        delta_time.tv_sec = end.tv_sec - start.tv_sec;
+        delta_time.tv_nsec = end.tv_nsec - start.tv_nsec;
     }
-    return result;
+    return delta_time;
 }
 
 int main()
@@ -67,7 +67,7 @@ int main()
     f1( 1, 2 );
     clock_gettime( CLOCK_MONOTONIC, &end );
 
-    printf( "Execution time for f1(): %LF ms\n", time2ms( timeDiff( start, end ) ) );
+    printf( "Execution time for f1(): %LF ms\n", time2ms( time_diff( start, end ) ) );
 
     //
 
@@ -75,7 +75,7 @@ int main()
     f2( 1, 2 );
     clock_gettime( CLOCK_MONOTONIC, &end );
 
-    printf( "Execution time for f2(): %LF ms\n", time2ms( timeDiff( start, end ) ) );
+    printf( "Execution time for f2(): %LF ms\n", time2ms( time_diff( start, end ) ) );
 
     //
     
@@ -83,7 +83,7 @@ int main()
     f3( 1, 2 );
     clock_gettime( CLOCK_MONOTONIC, &end );
 
-    printf( "Execution time for f3(): %LF ms\n", time2ms( timeDiff( start, end ) ) );
+    printf( "Execution time for f3(): %LF ms\n", time2ms( time_diff( start, end ) ) );
 
     
     return 0;

@@ -39,39 +39,151 @@ typedef struct timespec timespec_t;
 // Alias of the Data structure to describe a process' schedulability.
 typedef struct sched_param sched_param_t;
 
-
-void* task_1( void * arg )
+typedef struct
 {
-    printf( "Hello! I am thread 1!\n" );
+    timespec_t activation_time;
+    timespec_t response_time;
+}thread_args_t;
+
+
+// Covert the time from nanoseconds to miliseconds. 
+long double time2ms( struct timespec t )
+{
+    return (long double)(t.tv_sec * (long double)1E3 + t.tv_nsec / (long double)1E6);
 }
 
-void* task_2( void * arg )
+
+// Get the time difference between the start and end.
+timespec_t time_diff( timespec_t start, timespec_t end )
 {
-    printf( "Hello! I am thread 2!\n" );
+    timespec_t delta_time;
+
+    if ( (end.tv_nsec - start.tv_nsec) < 0 )                // 
+    {
+        delta_time.tv_sec = end.tv_sec - start.tv_sec - 1;
+        delta_time.tv_nsec = 1E9 + end.tv_nsec - start.tv_nsec;
+    }
+    else                                                    // Default case
+    {
+        delta_time.tv_sec = end.tv_sec - start.tv_sec;
+        delta_time.tv_nsec = end.tv_nsec - start.tv_nsec;
+    }
+    return delta_time;
 }
 
-void* task_3( void * arg )
+
+timespec_t time_sum( timespec_t t2, timespec_t t1 ) {
+
+  timespec_t delta_time;
+
+  delta_time.tv_nsec = t2.tv_nsec + t1.tv_nsec;
+  delta_time.tv_sec = t2.tv_sec + t1.tv_sec;
+
+  if ( delta_time.tv_nsec > (int)(1E9) - 1 )
+  {
+    delta_time.tv_nsec = delta_time.tv_nsec % (int)(1E9);
+    delta_time.tv_sec = delta_time.tv_sec + 1;
+  }
+  return delta_time;
+}
+
+
+void * task_1( thread_args_t * task_args )
 {
-    printf( "Hello! I am thread 3!\n" );
+    clock_nanosleep( CLOCK_MONOTONIC, TIMER_ABSTIME, &(task_args->activation_time), NULL );       // Wait for all tasks activate at the same time.
+
+    timespec_t dt, temp; dt.tv_sec = 0, dt.tv_nsec = (PERIOD1_MS) * 1E6;                          // Create timespec for activation period.
+
+    while ( 1 )
+    {
+        timespec_t run_time;
+
+        // printf( "Thread 1!\n" );
+        
+        f1( 1, 2 );
+
+        clock_gettime( CLOCK_MONOTONIC, &run_time );                                              // Get the Execution time.
+
+        task_args->response_time = time_diff( task_args->activation_time, run_time );             // Calculate responde time.
+
+        // temp = time_diff( )
+
+        task_args->activation_time = time_sum( task_args->activation_time, dt );                  // Increment activation time.
+
+        clock_nanosleep( CLOCK_MONOTONIC, TIMER_ABSTIME, &(task_args->activation_time), NULL );   // Sleep until next activation time is reached.
+    }
+}
+
+
+void * task_2( thread_args_t * task_args )
+{
+    clock_nanosleep( CLOCK_MONOTONIC, TIMER_ABSTIME, &(task_args->activation_time), NULL );       // Wait for all tasks activate at the same time.
+
+    timespec_t dt, temp; dt.tv_sec = 0, dt.tv_nsec = (PERIOD2_MS) * 1E6;                          // Create timespec for activation period.
+
+    while ( 1 )
+    {
+        timespec_t run_time;
+
+        // printf( "Thread 2!\n" );
+        
+        f2( 1, 2 );
+
+        clock_gettime( CLOCK_MONOTONIC, &run_time );                                              // Get the Execution time.
+
+        task_args->response_time = time_diff( task_args->activation_time, run_time );             // Calculate responde time.
+
+        // temp = time_diff( )
+
+        task_args->activation_time = time_sum( task_args->activation_time, dt );                  // Increment activation time.
+
+        clock_nanosleep( CLOCK_MONOTONIC, TIMER_ABSTIME, &(task_args->activation_time), NULL );   // Sleep until next activation time is reached.
+    }
+}
+
+
+void * task_3( thread_args_t * task_args )
+{
+    clock_nanosleep( CLOCK_MONOTONIC, TIMER_ABSTIME, &(task_args->activation_time), NULL );       // Wait for all tasks activate at the same time.
+
+    timespec_t dt, temp; dt.tv_sec = 0, dt.tv_nsec = (PERIOD3_MS) * 1E6;                          // Create timespec for activation period.
+
+    while ( 1 )
+    {
+        timespec_t run_time;
+
+        // printf( "Thread 3!\n" );
+        
+        f3( 1, 2 );
+        
+        clock_gettime( CLOCK_MONOTONIC, &run_time );                                              // Get the Execution time.
+
+        task_args->response_time = time_diff( task_args->activation_time, run_time );             // Calculate responde time.
+
+        // temp = time_diff( )
+
+        task_args->activation_time = time_sum( task_args->activation_time, dt );                  // Increment activation time.
+
+        clock_nanosleep( CLOCK_MONOTONIC, TIMER_ABSTIME, &(task_args->activation_time), NULL );   // Sleep until next activation time is reached.
+    }
 }
 
 
 int main()
 {
-    timespec_t activation_time[N_THREADS], worse_response_time[3] = { {0,0}, {0,0}, {0,0} };
+    cpu_set_t       mask;
 
-    cpu_set_t mask;
+    pthread_t       thr[N_THREADS];
 
-    pthread_t thr[N_THREADS];
+    pthread_attr_t  attr[N_THREADS];
 
-    pthread_attr_t attr[N_THREADS];
+    sched_param_t   priorities[N_THREADS];
 
-    sched_param_t priorities[3];
+    thread_args_t   task_args[N_THREADS];
+    
+    void            * tasks[N_THREADS] = { &task_1, &task_2, &task_3 };
 
-    // Set all activation to 2 seconds after the current time.
-    timespec_t delay; delay.tv_sec = 2; delay.tv_nsec = 0;
-
-    void * tasks[N_THREADS] = { task_1, task_2, task_3 };
+    timespec_t      delay; delay.tv_sec = 2; delay.tv_nsec = 0;    // Set all activation to 2 seconds after the current time.
 
     
     // Lock the memory of the process
@@ -86,15 +198,15 @@ int main()
 
     pthread_setschedprio( self, sched_get_priority_min( SCHED_FIFO ) );
 
-    clock_gettime( CLOCK_MONOTONIC, &activation_time[0] );
+    clock_gettime( CLOCK_MONOTONIC, &(task_args->activation_time) );
 
     // Add a delay of 2 secons for all at the current time.
     for ( int i = 1; i < N_THREADS; i++ )
-    {
-        activation_time[i] = activation_time[0];
-        activation_time[i].tv_sec += delay.tv_sec;
+    {        
+        task_args[i].activation_time = task_args->activation_time;
+        task_args[i].activation_time.tv_sec += delay.tv_sec;
     }
-    activation_time[0].tv_sec += delay.tv_sec;
+    task_args[0].activation_time.tv_sec += delay.tv_sec;
 
 
     // For each thread change the scheduler to FIFO and set the priorities (in RMPO).
@@ -107,28 +219,37 @@ int main()
         pthread_attr_setschedpolicy( &attr[i], SCHED_FIFO );                    // Set policy type to FIFO.
 
         priorities[i].sched_priority = sched_get_priority_max( SCHED_FIFO );    // Get the priority of each thread.
-        pthread_attr_setschedparam( &attr[i], &priorities[i] );                    // Set to the values specified in the buffer.
+        pthread_attr_setschedparam( &attr[i], &priorities[i] );                 // Set to the values specified in the buffer.
     }
 
-    // Create all threads
+    // Create all threads.
     printf( "Starting threads, please wait...\n" );
 
     for ( int i = 0; i < N_THREADS; i++ )
     {
-        if ( pthread_create( &thr[i], &attr[i], tasks[i], NULL ) < 0 )
+        if ( pthread_create( &thr[i], &attr[i], tasks[i], &(task_args[i]) ) < 0 )
             exit( 0 );
     }
 
-    // It will sleep for 5 seconds and then cancel all threads
+    // It will sleep for 5 seconds and then cancel all threads.
     while ( 1 )
     {
         printf( "Sleeping for 5 seconds, please wait...\n" );
         sleep( 5 );
-        
+
+        // Wait for threads to finish (if needed)
+        // for (int i = 0; i < N_THREADS; ++i)
+        //     pthread_join(thr[i], NULL);
+
+
         printf( "Cancelling threads, please wait...\n" );
         for ( int i = 0; i < N_THREADS; i++ )
-            pthread_cancel( thr[i] );
+            pthread_cancel( thr[ i ] );
 
+
+        for ( int i = 0; i < N_THREADS; i++ )
+            printf( "Task %d execution time: %LF ms\n", i, time2ms( task_args[i].response_time ) );
+        
         return 0;
     }
 }
